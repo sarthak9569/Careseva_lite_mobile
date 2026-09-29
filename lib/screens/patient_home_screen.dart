@@ -14,13 +14,13 @@ class PatientHomeScreen extends StatefulWidget {
 }
 
 class _PatientHomeScreenState extends State<PatientHomeScreen> {
-  final _clinicIdController = TextEditingController(text: 'CS-7K82P');
+  final _clinicIdController = TextEditingController();
   String? _errorMessage;
 
   void _handleFindClinic() {
     final input = _clinicIdController.text.trim();
     if (input.isEmpty) {
-      setState(() => _errorMessage = 'Please enter a Clinic ID');
+      setState(() => _errorMessage = 'Please enter a Clinic Reference Number or Clinic ID');
       return;
     }
 
@@ -31,7 +31,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
     if (clinic == null) {
       setState(() {
-        _errorMessage = 'Clinic not found.\n\nPlease check the Clinic ID and try again.';
+        _errorMessage = 'Clinic not found.\n\nPlease check the Clinic Reference Number and try again.';
       });
     } else {
       Navigator.push(
@@ -58,14 +58,17 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
         title: Text('CareSeva 2', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            tooltip: 'Switch Mode / Logout',
-            icon: const Icon(Icons.swap_horiz_rounded),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-                (route) => false,
-              );
+            tooltip: 'Logout / Switch Role',
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () async {
+              await queueStore.logout();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
         ],

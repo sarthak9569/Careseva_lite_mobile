@@ -17,7 +17,7 @@ class CompounderDashboardScreen extends StatefulWidget {
 }
 
 class _CompounderDashboardScreenState extends State<CompounderDashboardScreen> {
-  final TextEditingController _clinicIdController = TextEditingController(text: 'CS-7K82P');
+  final TextEditingController _clinicIdController = TextEditingController();
   final TextEditingController _otpController = TextEditingController();
 
   bool _isOtpSent = false;
@@ -177,14 +177,18 @@ class _CompounderDashboardScreenState extends State<CompounderDashboardScreen> {
         title: Text('Compounder Portal', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            tooltip: 'Switch Role',
-            icon: const Icon(Icons.swap_horiz_rounded),
-            onPressed: () {
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-                (route) => false,
-              );
+            tooltip: 'Logout / Switch Role',
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () async {
+              final queueStore = Provider.of<QueueStore>(context, listen: false);
+              await queueStore.logout();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
         ],

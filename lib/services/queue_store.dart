@@ -502,4 +502,20 @@ class QueueStore extends ChangeNotifier {
     await _saveData();
     notifyListeners();
   }
+
+  Future<void> logout() async {
+    _currentUser = null;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kUserProfileKey);
+    notifyListeners();
+  }
+
+  Future<void> clearAllData() async {
+    _currentUser = null;
+    _tokens = [];
+    _queues = {};
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    notifyListeners();
+  }
 }
