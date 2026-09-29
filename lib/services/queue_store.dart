@@ -143,6 +143,7 @@ class QueueStore extends ChangeNotifier {
     _clinics = [
       Clinic(
         clinicId: demoClinicId,
+        clinicRefNum: 'REF-78291',
         name: 'ABC Dental Clinic',
         phone: '+91 98765 43210',
         email: 'contact@abcdental.com',
@@ -158,6 +159,7 @@ class QueueStore extends ChangeNotifier {
       ),
       Clinic(
         clinicId: 'CS-9X42M',
+        clinicRefNum: 'REF-9X42M',
         name: 'City Care Polyclinic',
         phone: '+91 98123 45678',
         email: 'info@citycare.org',

@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:uuid/uuid.dart';
+import '../models/clinic.dart';
 import '../models/user_profile.dart';
+import '../services/api_service.dart';
 import '../services/queue_store.dart';
+import 'clinic_view_screen.dart';
 import 'compounder_dashboard_screen.dart';
 import 'patient_home_screen.dart';
 
@@ -21,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   final _nameController = TextEditingController(text: 'Sarthak Verma');
   final _phoneController = TextEditingController(text: '+91 98765 00001');
+  final _clinicRefController = TextEditingController(text: 'REF-78291');
   final _ageController = TextEditingController(text: '28');
   String _selectedGender = 'Male';
 
@@ -30,13 +34,17 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _handleSendOtp() {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _isOtpSent = true);
+    setState(() {
+      _isOtpSent = true;
+    });
   }
 
   void _handleVerifyAndLogin() async {
     if (_otpController.text.trim().isEmpty) return;
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+    });
 
     final queueStore = Provider.of<QueueStore>(context, listen: false);
 
@@ -52,15 +60,35 @@ class _AuthScreenState extends State<AuthScreen> {
 
     await queueStore.setUserProfile(profile);
 
-    setState(() => _isLoading = false);
+    if (widget.targetRole == UserRole.patient) {
+      final refNum = _clinicRefController.text.trim();
+      Clinic? clinic = queueStore.findClinicById(refNum);
 
-    if (mounted) {
-      if (widget.targetRole == UserRole.patient) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const PatientHomeScreen()),
-        );
-      } else {
+      if (clinic == null && refNum.isNotEmpty) {
+        final res = await ApiService.getClinicByIdentifier(refNum);
+        if (res != null && res['clinic'] != null) {
+          clinic = Clinic.fromJson(res['clinic']);
+        }
+      }
+
+      setState(() => _isLoading = false);
+
+      if (mounted) {
+        if (clinic != null) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => ClinicViewScreen(clinic: clinic!)),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const PatientHomeScreen()),
+          );
+        }
+      }
+    } else {
+      setState(() => _isLoading = false);
+      if (mounted) {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => const CompounderDashboardScreen()),
@@ -71,11 +99,11 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final roleName = widget.targetRole == UserRole.patient ? 'Patient Login' : 'Compounder Login';
+    final roleName = widget.targetRole == UserRole.patient ? 'Patient Portal' : 'Compounder Verification';
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(roleName),
+        title: Text(roleName, style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -85,14 +113,14 @@ class _AuthScreenState extends State<AuthScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                _isOtpSent ? 'Verify Phone Number' : 'Create Profile & Login',
+                _isOtpSent ? 'Verify Phone OTP' : 'Enter Details & Clinic Reference',
                 style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               Text(
                 _isOtpSent
-                    ? 'Enter the 6-digit OTP sent to ${_phoneController.text}'
-                    : 'Provide your basic details to access CareSeva 2',
+                    ? 'Enter 6-digit OTP sent to ${_phoneController.text}'
+                    : 'Provide your name, phone, and Clinic Reference Number to enter clinic dashboard',
                 style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 24),
@@ -119,6 +147,21 @@ class _AuthScreenState extends State<AuthScreen> {
                   validator: (v) => v == null || v.isEmpty ? 'Enter phone number' : null,
                 ),
                 const SizedBox(height: 16),
+
+                if (widget.targetRole == UserRole.patient) ...[
+                  TextFormField(
+                    controller: _clinicRefController,
+                    decoration: const InputDecoration(
+                      labelText: 'Clinic Reference Number * (e.g. REF-78291)',
+                      hintText: 'Enter clinic ref number or ID',
+                      prefixIcon: Icon(Icons.qr_code_rounded),
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => v == null || v.isEmpty ? 'Enter Clinic Reference Number' : null,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 Row(
                   children: [
                     Expanded(
@@ -152,9 +195,14 @@ class _AuthScreenState extends State<AuthScreen> {
                   ],
                 ),
                 const SizedBox(height: 28),
-                ElevatedButton(
-                  onPressed: _handleSendOtp,
-                  child: const Text('Send Phone OTP'),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0F766E)),
+                    onPressed: _handleSendOtp,
+                    icon: const Icon(Icons.sms_outlined),
+                    label: const Text('SEND PHONE OTP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  ),
                 ),
               ] else ...[
                 TextFormField(
@@ -162,7 +210,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   keyboardType: TextInputType.number,
                   textAlign: TextAlign.center,
                   style: GoogleFonts.sourceCodePro(
-                    fontSize: 24,
+                    fontSize: 26,
                     fontWeight: FontWeight.bold,
                     letterSpacing: 8,
                   ),
@@ -172,16 +220,21 @@ class _AuthScreenState extends State<AuthScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: _isLoading ? null : _handleVerifyAndLogin,
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text('Verify & Enter App'),
+                SizedBox(
+                  height: 52,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0284C7)),
+                    onPressed: _isLoading ? null : _handleVerifyAndLogin,
+                    icon: _isLoading
+                        ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.arrow_forward_rounded),
+                    label: const Text('VERIFY & ENTER CLINIC DASHBOARD', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextButton(
                   onPressed: () => setState(() => _isOtpSent = false),
-                  child: const Text('Edit Phone / Details'),
+                  child: const Text('Edit Details / Clinic Ref Number'),
                 ),
               ],
             ],

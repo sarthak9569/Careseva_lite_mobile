@@ -1,7 +1,8 @@
 enum ClinicStatus { pending, approved, rejected, suspended }
 
 class Clinic {
-  final String clinicId; // Unique alpha-numeric ID e.g. CS-7K82P
+  final String clinicId; // e.g. CS-7K82P
+  final String clinicRefNum; // e.g. REF-78291
   final String name;
   final String phone;
   final String email;
@@ -14,9 +15,12 @@ class Clinic {
   final String speciality;
   final String operatingHours;
   final ClinicStatus status;
+  bool isBookingActive;
+  bool isOpdActive;
 
   Clinic({
     required this.clinicId,
+    required this.clinicRefNum,
     required this.name,
     required this.phone,
     required this.email,
@@ -29,11 +33,14 @@ class Clinic {
     required this.speciality,
     required this.operatingHours,
     this.status = ClinicStatus.approved,
+    this.isBookingActive = false,
+    this.isOpdActive = false,
   });
 
   Map<String, dynamic> toJson() {
     return {
       'clinicId': clinicId,
+      'clinicRefNum': clinicRefNum,
       'name': name,
       'phone': phone,
       'email': email,
@@ -46,27 +53,32 @@ class Clinic {
       'speciality': speciality,
       'operatingHours': operatingHours,
       'status': status.name,
+      'isBookingActive': isBookingActive,
+      'isOpdActive': isOpdActive,
     };
   }
 
   factory Clinic.fromJson(Map<String, dynamic> json) {
     return Clinic(
-      clinicId: json['clinicId'],
-      name: json['name'],
-      phone: json['phone'],
+      clinicId: json['clinicId'] ?? '',
+      clinicRefNum: json['clinicRefNum'] ?? json['clinicId'] ?? '',
+      name: json['name'] ?? 'Clinic',
+      phone: json['phone'] ?? '',
       email: json['email'] ?? '',
-      address: json['address'],
-      city: json['city'],
-      state: json['state'],
-      pincode: json['pincode'],
-      latitude: (json['latitude'] as num).toDouble(),
-      longitude: (json['longitude'] as num).toDouble(),
-      speciality: json['speciality'],
-      operatingHours: json['operatingHours'],
+      address: json['address'] ?? '',
+      city: json['city'] ?? '',
+      state: json['state'] ?? '',
+      pincode: json['pincode'] ?? '',
+      latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
+      speciality: json['speciality'] ?? '',
+      operatingHours: json['operatingHours'] ?? '',
       status: ClinicStatus.values.firstWhere(
         (e) => e.name == json['status'],
         orElse: () => ClinicStatus.approved,
       ),
+      isBookingActive: json['isBookingActive'] ?? false,
+      isOpdActive: json['isOpdActive'] ?? false,
     );
   }
 }

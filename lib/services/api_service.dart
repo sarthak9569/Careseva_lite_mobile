@@ -66,6 +66,74 @@ class ApiService {
     return [];
   }
 
+  static Future<Map<String, dynamic>?> getClinicByIdentifier(String identifier) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/clinics/lookup/$identifier'), headers: headers);
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      debugPrint('[ApiService Lookup Clinic Error] $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> sendCompounderOtp(String clinicId) async {
+    try {
+      final res = await http.post(Uri.parse('$baseUrl/clinics/$clinicId/send-compounder-otp'), headers: headers);
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      debugPrint('[ApiService Send Compounder OTP Error] $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> verifyCompounderOtp(String clinicId, String otp) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/clinics/$clinicId/verify-compounder-otp'),
+        headers: headers,
+        body: jsonEncode({'otp': otp}),
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      debugPrint('[ApiService Verify Compounder OTP Error] $e');
+    }
+    return null;
+  }
+
+  static Future<bool> toggleClinicBooking(String clinicId, bool state) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/clinics/$clinicId/toggle-booking'),
+        headers: headers,
+        body: jsonEncode({'state': state}),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService Toggle Clinic Booking Error] $e');
+      return false;
+    }
+  }
+
+  static Future<bool> toggleClinicOpd(String clinicId, bool state) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/clinics/$clinicId/toggle-opd'),
+        headers: headers,
+        body: jsonEncode({'state': state}),
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      debugPrint('[ApiService Toggle Clinic OPD Error] $e');
+      return false;
+    }
+  }
+
   static Future<List<dynamic>> getDoctors(String clinicId) async {
     try {
       final res = await http.get(Uri.parse('$baseUrl/clinics/$clinicId/doctors'), headers: headers);
