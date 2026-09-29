@@ -1,8 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
 import 'models/user_profile.dart';
 import 'screens/auth_screen.dart';
 import 'screens/patient_home_screen.dart';
@@ -22,15 +20,6 @@ void main() async {
     debugPrint('[CareSeva Patient Platform Error] $error\n$stack');
     return true;
   };
-
-  // Graceful Firebase Initialization
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  } catch (e) {
-    debugPrint('[CareSeva Patient] Firebase notice: $e');
-  }
 
   // Custom UI Error Widget fallback
   ErrorWidget.builder = (FlutterErrorDetails details) {
