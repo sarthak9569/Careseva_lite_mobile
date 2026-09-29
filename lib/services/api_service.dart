@@ -4,13 +4,9 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Update this to your deployed Railway backend URL or use local testing host
-  static const String baseUrl = kIsWeb
-      ? 'http://localhost:8000/api'
-      : 'http://10.0.2.2:8000/api'; // Android emulator localhost alias
+  static const String baseUrl = 'https://caresevalitebackend-production.up.railway.app/api/v1';
 
-  static String get wsBaseUrl => kIsWeb
-      ? 'ws://localhost:8000'
-      : 'ws://10.0.2.2:8000';
+  static String get wsBaseUrl => 'wss://caresevalitebackend-production.up.railway.app';
 
   static String getQueueWebSocketUrl(String clinicId, String date) =>
       '$wsBaseUrl/ws/queue/$clinicId/$date';
