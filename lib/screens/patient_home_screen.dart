@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../models/user_profile.dart';
 import '../services/queue_store.dart';
+import 'auth_screen.dart';
 import 'clinic_view_screen.dart';
-import 'role_selection_screen.dart';
 import 'token_screen.dart';
 
 class PatientHomeScreen extends StatefulWidget {
@@ -55,17 +56,17 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('CareSeva 2', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text('CareSeva Patient', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
         actions: [
           IconButton(
-            tooltip: 'Logout / Switch Role',
+            tooltip: 'Logout',
             icon: const Icon(Icons.logout_rounded),
             onPressed: () async {
               await queueStore.logout();
               if (context.mounted) {
                 Navigator.pushAndRemoveUntil(
                   context,
-                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+                  MaterialPageRoute(builder: (_) => const AuthScreen(targetRole: UserRole.patient)),
                   (route) => false,
                 );
               }

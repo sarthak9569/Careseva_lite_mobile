@@ -3,7 +3,7 @@ import 'package:careseva_mobile_app/main.dart';
 
 void main() {
   testWidgets('Mobile App loads cleanly test', (WidgetTester tester) async {
-    await tester.pumpWidget(const CareSevaMobileApp());
+    await tester.pumpWidget(const CareSevaPatientApp());
     expect(find.textContaining('CareSeva'), findsWidgets);
   });
 }

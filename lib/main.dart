@@ -4,9 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'models/user_profile.dart';
-import 'screens/compounder_dashboard_screen.dart';
+import 'screens/auth_screen.dart';
 import 'screens/patient_home_screen.dart';
-import 'screens/role_selection_screen.dart';
 import 'services/queue_store.dart';
 import 'theme/mobile_theme.dart';
 
@@ -16,11 +15,11 @@ void main() async {
   // Global exception handlers for production resilience
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details);
-    debugPrint('[CareSeva Mobile Error] ${details.exceptionAsString()}');
+    debugPrint('[CareSeva Patient Error] ${details.exceptionAsString()}');
   };
 
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
-    debugPrint('[CareSeva Mobile Platform Error] $error\n$stack');
+    debugPrint('[CareSeva Patient Platform Error] $error\n$stack');
     return true;
   };
 
@@ -30,7 +29,7 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
   } catch (e) {
-    debugPrint('[CareSeva Mobile] Firebase initialization notice: $e (Operating in hybrid/demo mode)');
+    debugPrint('[CareSeva Patient] Firebase notice: $e');
   }
 
   // Custom UI Error Widget fallback
@@ -51,7 +50,7 @@ void main() async {
               ),
               SizedBox(height: 6),
               Text(
-                'An unexpected UI error occurred. Please try navigating back or restarting.',
+                'An unexpected error occurred. Please restart the app.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
               ),
@@ -62,11 +61,11 @@ void main() async {
     );
   };
 
-  runApp(const CareSevaMobileApp());
+  runApp(const CareSevaPatientApp());
 }
 
-class CareSevaMobileApp extends StatelessWidget {
-  const CareSevaMobileApp({super.key});
+class CareSevaPatientApp extends StatelessWidget {
+  const CareSevaPatientApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -74,17 +73,12 @@ class CareSevaMobileApp extends StatelessWidget {
       create: (_) => QueueStore(),
       child: Consumer<QueueStore>(
         builder: (context, queueStore, child) {
-          Widget homeWidget;
-          if (queueStore.currentUser == null) {
-            homeWidget = const RoleSelectionScreen();
-          } else if (queueStore.currentUser!.role == UserRole.patient) {
-            homeWidget = const PatientHomeScreen();
-          } else {
-            homeWidget = const CompounderDashboardScreen();
-          }
+          final Widget homeWidget = queueStore.currentUser == null
+              ? const AuthScreen(targetRole: UserRole.patient)
+              : const PatientHomeScreen();
 
           return MaterialApp(
-            title: 'CareSeva 2',
+            title: 'CareSeva Patient',
             debugShowCheckedModeBanner: false,
             theme: MobileTheme.lightTheme,
             home: homeWidget,
