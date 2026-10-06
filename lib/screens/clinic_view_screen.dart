@@ -19,6 +19,22 @@ class ClinicViewScreen extends StatefulWidget {
 class _ClinicViewScreenState extends State<ClinicViewScreen> {
   bool _isBooking = false;
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final queueStore = Provider.of<QueueStore>(context, listen: false);
+      final today = DateFormat('yyyy-MM-DD').format(DateTime.now());
+      final doctors = queueStore.getDoctorsForClinic(widget.clinic.clinicId);
+      final doctorId = doctors.isNotEmpty ? doctors.first.doctorId : 'DOC-1';
+      queueStore.startQueueSync(
+        widget.clinic.clinicId,
+        today,
+        doctorId: doctorId,
+      );
+    });
+  }
+
   void _handleJoinQueue(Doctor doctor) async {
     final queueStore = Provider.of<QueueStore>(context, listen: false);
     final user = queueStore.currentUser;

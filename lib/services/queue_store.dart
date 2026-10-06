@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
@@ -25,6 +26,11 @@ class QueueStore extends ChangeNotifier {
   Map<String, QueueState> _queues = {};
   List<TokenModel> _tokens = [];
 
+  Timer? _queueSyncTimer;
+  String? _activeSyncClinicId;
+  String? _activeSyncDate;
+  String? _activeSyncDoctorId;
+
   UserProfile? get currentUser => _currentUser;
   List<Clinic> get clinics => _clinics;
   List<Doctor> get doctors => _doctors;
@@ -32,6 +38,58 @@ class QueueStore extends ChangeNotifier {
 
   QueueStore() {
     _initAndLoadData();
+  }
+
+  @override
+  void dispose() {
+    _queueSyncTimer?.cancel();
+    super.dispose();
+  }
+
+  void startQueueSync(String clinicId, String date, {String? doctorId}) {
+    _activeSyncClinicId = clinicId;
+    _activeSyncDate = date;
+    _activeSyncDoctorId = doctorId;
+    syncActiveQueueRemote();
+
+    _queueSyncTimer?.cancel();
+    _queueSyncTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      syncActiveQueueRemote();
+    });
+  }
+
+  Future<void> syncActiveQueueRemote() async {
+    if (_activeSyncClinicId == null || _activeSyncDate == null) return;
+    try {
+      final res = await ApiService.getQueueData(
+        _activeSyncClinicId!,
+        _activeSyncDate!,
+        doctorId: _activeSyncDoctorId,
+      );
+      if (res != null && res['success'] == true) {
+        if (res['queue'] != null) {
+          final qMap = Map<String, dynamic>.from(res['queue']);
+          final qState = QueueState.fromJson(qMap);
+          final queueKey = '${qState.clinicId}__${qState.doctorId}__${qState.date}';
+          _queues[queueKey] = qState;
+        }
+        if (res['tokens'] != null) {
+          final List tokenList = res['tokens'];
+          for (var tJson in tokenList) {
+            final tModel = TokenModel.fromJson(Map<String, dynamic>.from(tJson));
+            final idx = _tokens.indexWhere((t) => t.tokenId == tModel.tokenId);
+            if (idx != -1) {
+              _tokens[idx] = tModel;
+            } else {
+              _tokens.add(tModel);
+            }
+          }
+        }
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('[Patient QueueStore Sync Notice] $e');
+    }
   }
 
   Future<void> _initAndLoadData() async {

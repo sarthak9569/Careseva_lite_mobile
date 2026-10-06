@@ -33,6 +33,14 @@ class _TokenScreenState extends State<TokenScreen> {
   void initState() {
     super.initState();
     _checkLocationAndETA();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final queueStore = Provider.of<QueueStore>(context, listen: false);
+      queueStore.startQueueSync(
+        widget.token.clinicId,
+        widget.token.date,
+        doctorId: widget.token.doctorId,
+      );
+    });
   }
 
   Future<void> _checkLocationAndETA() async {
