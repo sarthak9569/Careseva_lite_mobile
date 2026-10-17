@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 
 class ApiService {
   // Update this to your deployed Railway backend URL or use local testing host
-  static const String baseUrl = 'https://caresevalitebackend-production.up.railway.app/api/v1';
+  static const String baseUrl = 'https://caresevalitebackend-production.up.railway.app/api';
 
   static String get wsBaseUrl => 'wss://caresevalitebackend-production.up.railway.app';
 
