@@ -3,10 +3,30 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  // Update this to your deployed Railway backend URL or use local testing host
-  static const String baseUrl = 'https://caresevalitebackend-production.up.railway.app/api';
+  static const String _cloudBaseUrl = 'https://caresevalitebackend-production.up.railway.app/api';
+  static final String _localBaseUrl = kIsWeb ? 'http://localhost:8000/api' : 'http://10.0.2.2:8000/api';
 
-  static String get wsBaseUrl => 'wss://caresevalitebackend-production.up.railway.app';
+  static String _activeBaseUrl = _cloudBaseUrl;
+  static String get baseUrl => _activeBaseUrl;
+
+  static List<String> get _candidateHosts => [
+        _activeBaseUrl,
+        'http://localhost:8000/api',
+        'http://192.168.1.7:8000/api',
+        if (_activeBaseUrl != _localBaseUrl) _localBaseUrl,
+        if (_activeBaseUrl != _cloudBaseUrl) _cloudBaseUrl,
+        if (!kIsWeb) 'http://10.0.2.2:8000/api',
+      ];
+
+  static String get wsBaseUrl {
+    if (_activeBaseUrl.contains('railway.app')) {
+      return 'wss://caresevalitebackend-production.up.railway.app';
+    } else if (_activeBaseUrl.contains('localhost')) {
+      return 'ws://localhost:8000';
+    } else {
+      return 'ws://192.168.1.7:8000';
+    }
+  }
 
   static String getQueueWebSocketUrl(String clinicId, String date) =>
       '$wsBaseUrl/ws/queue/$clinicId/$date';
@@ -16,10 +36,42 @@ class ApiService {
         'Accept': 'application/json',
       };
 
+  static Future<http.Response> _get(String path, {Map<String, String>? queryParams}) async {
+    for (final host in _candidateHosts) {
+      try {
+        final uri = Uri.parse('$host$path').replace(queryParameters: queryParams);
+        final res = await http.get(uri, headers: headers).timeout(const Duration(seconds: 4));
+        if (res.statusCode == 200) {
+          _activeBaseUrl = host;
+          return res;
+        }
+      } catch (_) {}
+    }
+    throw Exception('Failed to connect to any backend host for GET $path');
+  }
+
+  static Future<http.Response> _post(String path, {Object? body}) async {
+    for (final host in _candidateHosts) {
+      try {
+        final uri = Uri.parse('$host$path');
+        final res = await http.post(
+          uri,
+          headers: headers,
+          body: body != null ? jsonEncode(body) : null,
+        ).timeout(const Duration(seconds: 5));
+        if (res.statusCode == 200 || res.statusCode == 201) {
+          _activeBaseUrl = host;
+          return res;
+        }
+      } catch (_) {}
+    }
+    throw Exception('Failed to post to any backend host for POST $path');
+  }
+
   // Health check
   static Future<bool> checkBackendHealth() async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/health')).timeout(const Duration(seconds: 5));
+      final res = await _get('/health');
       return res.statusCode == 200;
     } catch (_) {
       return false;
@@ -29,18 +81,12 @@ class ApiService {
   // Auth Routes
   static Future<Map<String, dynamic>?> loginOrRegister(Map<String, dynamic> body) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: headers,
-        body: jsonEncode(body),
-      );
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      final res = await _post('/auth/login', body: body);
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Login Error] $e');
+      return null;
     }
-    return null;
   }
 
   // Clinics & Doctors
@@ -50,65 +96,48 @@ class ApiService {
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (city != null && city.isNotEmpty) queryParams['city'] = city;
 
-      final uri = Uri.parse('$baseUrl/clinics').replace(queryParameters: queryParams);
-      final res = await http.get(uri, headers: headers);
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['clinics'] ?? [];
-      }
+      final res = await _get('/clinics', queryParams: queryParams.isNotEmpty ? queryParams : null);
+      final data = jsonDecode(res.body);
+      return data['clinics'] ?? [];
     } catch (e) {
       debugPrint('[ApiService Get Clinics Error] $e');
+      return [];
     }
-    return [];
   }
 
   static Future<Map<String, dynamic>?> getClinicByIdentifier(String identifier) async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/clinics/lookup/$identifier'), headers: headers);
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      final res = await _get('/clinics/lookup/$identifier');
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Lookup Clinic Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<Map<String, dynamic>?> sendCompounderOtp(String clinicId) async {
     try {
-      final res = await http.post(Uri.parse('$baseUrl/clinics/$clinicId/send-compounder-otp'), headers: headers);
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      final res = await _post('/clinics/$clinicId/send-compounder-otp');
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Send Compounder OTP Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<Map<String, dynamic>?> verifyCompounderOtp(String clinicId, String otp) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/clinics/$clinicId/verify-compounder-otp'),
-        headers: headers,
-        body: jsonEncode({'otp': otp}),
-      );
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      final res = await _post('/clinics/$clinicId/verify-compounder-otp', body: {'otp': otp});
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Verify Compounder OTP Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<bool> toggleClinicBooking(String clinicId, bool state) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/clinics/$clinicId/toggle-booking'),
-        headers: headers,
-        body: jsonEncode({'state': state}),
-      );
+      final res = await _post('/clinics/$clinicId/toggle-booking', body: {'state': state});
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('[ApiService Toggle Clinic Booking Error] $e');
@@ -118,11 +147,7 @@ class ApiService {
 
   static Future<bool> toggleClinicOpd(String clinicId, bool state) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/clinics/$clinicId/toggle-opd'),
-        headers: headers,
-        body: jsonEncode({'state': state}),
-      );
+      final res = await _post('/clinics/$clinicId/toggle-opd', body: {'state': state});
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('[ApiService Toggle Clinic OPD Error] $e');
@@ -132,53 +157,43 @@ class ApiService {
 
   static Future<List<dynamic>> getDoctors(String clinicId) async {
     try {
-      final res = await http.get(Uri.parse('$baseUrl/clinics/$clinicId/doctors'), headers: headers);
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['doctors'] ?? [];
-      }
+      final res = await _get('/clinics/$clinicId/doctors');
+      final data = jsonDecode(res.body);
+      return data['doctors'] ?? [];
     } catch (e) {
       debugPrint('[ApiService Get Doctors Error] $e');
+      return [];
     }
-    return [];
   }
 
   // Applications
   static Future<Map<String, dynamic>?> submitApplication(Map<String, dynamic> appData) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/applications'),
-        headers: headers,
-        body: jsonEncode(appData),
-      );
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        return jsonDecode(res.body);
-      }
+      final res = await _post('/applications', body: appData);
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Submit Application Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<List<dynamic>> getApplications({String? status}) async {
     try {
-      final uri = Uri.parse('$baseUrl/applications').replace(
-        queryParameters: status != null ? {'status': status} : null,
+      final res = await _get(
+        '/applications',
+        queryParams: status != null ? {'status': status} : null,
       );
-      final res = await http.get(uri, headers: headers);
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        return data['applications'] ?? [];
-      }
+      final data = jsonDecode(res.body);
+      return data['applications'] ?? [];
     } catch (e) {
       debugPrint('[ApiService Get Applications Error] $e');
+      return [];
     }
-    return [];
   }
 
   static Future<bool> approveApplication(String appId) async {
     try {
-      final res = await http.post(Uri.parse('$baseUrl/applications/$appId/approve'), headers: headers);
+      final res = await _post('/applications/$appId/approve');
       return res.statusCode == 200;
     } catch (e) {
       debugPrint('[ApiService Approve Application Error] $e');
@@ -188,10 +203,9 @@ class ApiService {
 
   static Future<bool> rejectApplication(String appId, String reason) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/applications/$appId/reject'),
-        headers: headers,
-        body: jsonEncode({'rejectionReason': reason}),
+      final res = await _post(
+        '/applications/$appId/reject',
+        body: {'rejectionReason': reason},
       );
       return res.statusCode == 200;
     } catch (e) {
@@ -203,46 +217,37 @@ class ApiService {
   // Queue & Token API
   static Future<Map<String, dynamic>?> getQueueData(String clinicId, String date, {String? doctorId}) async {
     try {
-      final uri = Uri.parse('$baseUrl/queues/$clinicId/$date').replace(
-        queryParameters: doctorId != null ? {'doctorId': doctorId} : null,
+      final res = await _get(
+        '/queues/$clinicId/$date',
+        queryParams: doctorId != null ? {'doctorId': doctorId} : null,
       );
-      final res = await http.get(uri, headers: headers);
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Get Queue Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<Map<String, dynamic>?> createToken(Map<String, dynamic> tokenData) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/queues/token'),
-        headers: headers,
-        body: jsonEncode(tokenData),
-      );
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        return jsonDecode(res.body);
-      }
+      final res = await _post('/queues/token', body: tokenData);
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Create Token Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<bool> toggleQueueActive(String clinicId, String date, String doctorId, bool isActive) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/queues/toggle-active'),
-        headers: headers,
-        body: jsonEncode({
+      final res = await _post(
+        '/queues/toggle-active',
+        body: {
           'clinicId': clinicId,
           'date': date,
           'doctorId': doctorId,
           'isActive': isActive,
-        }),
+        },
       );
       return res.statusCode == 200;
     } catch (e) {
@@ -253,32 +258,37 @@ class ApiService {
 
   static Future<Map<String, dynamic>?> callNextToken(String clinicId, String date, String doctorId) async {
     try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/queues/call-next'),
-        headers: headers,
-        body: jsonEncode({
+      final res = await _post(
+        '/queues/call-next',
+        body: {
           'clinicId': clinicId,
           'date': date,
           'doctorId': doctorId,
-        }),
+        },
       );
-      if (res.statusCode == 200) {
-        return jsonDecode(res.body);
-      }
+      return jsonDecode(res.body);
     } catch (e) {
       debugPrint('[ApiService Call Next Error] $e');
+      return null;
     }
-    return null;
   }
 
   static Future<bool> updateTokenStatus(String tokenId, String status) async {
     try {
-      final res = await http.patch(
-        Uri.parse('$baseUrl/queues/token/$tokenId/status'),
-        headers: headers,
-        body: jsonEncode({'status': status}),
-      );
-      return res.statusCode == 200;
+      for (final host in _candidateHosts) {
+        try {
+          final res = await http.patch(
+            Uri.parse('$host/queues/token/$tokenId/status'),
+            headers: headers,
+            body: jsonEncode({'status': status}),
+          ).timeout(const Duration(seconds: 4));
+          if (res.statusCode == 200) {
+            _activeBaseUrl = host;
+            return true;
+          }
+        } catch (_) {}
+      }
+      return false;
     } catch (e) {
       debugPrint('[ApiService Update Token Status Error] $e');
       return false;
