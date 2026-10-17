@@ -15,8 +15,8 @@ class ApiService {
         'http://localhost:8000/api',
         'http://192.168.1.7:8000/api',
         _localBaseUrl,
-        _cloudBaseUrl,
         if (!kIsWeb) 'http://10.0.2.2:8000/api',
+        _cloudBaseUrl,
       ].toSet().toList();
 
   static String get wsBaseUrl {
@@ -38,11 +38,20 @@ class ApiService {
       };
 
   static Future<http.Response> _get(String path, {Map<String, String>? queryParams}) async {
+    try {
+      final uri = Uri.parse('$_activeBaseUrl$path').replace(queryParameters: queryParams);
+      final res = await http.get(uri, headers: headers).timeout(const Duration(milliseconds: 1500));
+      if (res.statusCode < 500) {
+        return res;
+      }
+    } catch (_) {}
+
     for (final host in _candidateHosts) {
+      if (host == _activeBaseUrl) continue;
       try {
         final uri = Uri.parse('$host$path').replace(queryParameters: queryParams);
-        final res = await http.get(uri, headers: headers).timeout(const Duration(milliseconds: 2000));
-        if (res.statusCode == 200) {
+        final res = await http.get(uri, headers: headers).timeout(const Duration(milliseconds: 1500));
+        if (res.statusCode < 500) {
           _activeBaseUrl = host;
           return res;
         }
@@ -52,15 +61,30 @@ class ApiService {
   }
 
   static Future<http.Response> _post(String path, {Object? body}) async {
+    final encodedBody = body != null ? jsonEncode(body) : '{}';
+
+    try {
+      final uri = Uri.parse('$_activeBaseUrl$path');
+      final res = await http.post(
+        uri,
+        headers: headers,
+        body: encodedBody,
+      ).timeout(const Duration(milliseconds: 2000));
+      if (res.statusCode < 500) {
+        return res;
+      }
+    } catch (_) {}
+
     for (final host in _candidateHosts) {
+      if (host == _activeBaseUrl) continue;
       try {
         final uri = Uri.parse('$host$path');
         final res = await http.post(
           uri,
           headers: headers,
-          body: body != null ? jsonEncode(body) : null,
-        ).timeout(const Duration(milliseconds: 2500));
-        if (res.statusCode == 200 || res.statusCode == 201) {
+          body: encodedBody,
+        ).timeout(const Duration(milliseconds: 2000));
+        if (res.statusCode < 500) {
           _activeBaseUrl = host;
           return res;
         }
